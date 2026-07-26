@@ -1,100 +1,125 @@
+import org.jetbrains.changelog.Changelog
+import org.jetbrains.changelog.markdownToHTML
+
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.9.22"
-    id("org.jetbrains.intellij") version "1.17.0"
+    alias(libs.plugins.kotlin) // Kotlin support
+    alias(libs.plugins.intelliJPlatform) // IntelliJ Platform Gradle Plugin
+    alias(libs.plugins.changelog) // Gradle Changelog Plugin
+    alias(libs.plugins.kover) // Gradle Kover Plugin
 }
 
-group = "com.vajra"
-version = "0.2.7" // UPDATED: Bumped to 0.2.7 per your request
+group = providers.gradleProperty("pluginGroup").get()
+version = providers.gradleProperty("pluginVersion").get()
+
+kotlin {
+    jvmToolchain(21)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21) // 替换为你的目标Java版本
+    }
+}
+
 
 repositories {
+    mavenLocal()
     mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
 }
 
 dependencies {
+    intellijPlatform {
+        local(providers.gradleProperty("platformLocalPath"))
+        bundledPlugin("com.intellij.java")
+        bundledPlugin("org.jetbrains.kotlin")
+    }
+
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }
 
-intellij {
-    version.set("2023.3")
-    type.set("IC")
-    plugins.set(listOf())
+intellijPlatform {
+    pluginConfiguration {
+        name = providers.gradleProperty("pluginName")
+        version = providers.gradleProperty("pluginVersion")
+        ideaVersion {
+            sinceBuild = providers.gradleProperty("pluginSinceBuild")
+            untilBuild = providers.gradleProperty("pluginUntilBuild")
+        }
+
+        // Extract the <!-- Plugin description --> section from README.md and provide for the plugin's manifest
+        description = providers.fileContents(layout.projectDirectory.file("README.md")).asText.map {
+            val start = "<!-- Plugin description -->"
+            val end = "<!-- Plugin description end -->"
+
+            with(it.lines()) {
+                if (!containsAll(listOf(start, end))) {
+                    throw GradleException("Plugin description section not found in README.md:\n$start ... $end")
+                }
+                subList(indexOf(start) + 1, indexOf(end)).joinToString("\n").let(::markdownToHTML)
+            }
+        }
+
+        val changelog = project.changelog // local variable for configuration cache compatibility
+        // Get the latest available change notes from the changelog file
+        changeNotes = providers.gradleProperty("pluginVersion").map { pluginVersion ->
+            with(changelog) {
+                renderItem(
+                    (getOrNull(pluginVersion) ?: getUnreleased())
+                        .withHeader(false)
+                        .withEmptySections(false),
+                    Changelog.OutputType.HTML,
+                )
+            }
+        }
+    }
+
+    // 禁用这些任务以避免构建问题
+//    tasks {
+//        named<org.jetbrains.intellij.platform.gradle.tasks.BuildSearchableOptionsTask>("buildSearchableOptions") {
+//            enabled = false
+//        }
+//        named("prepareJarSearchableOptions") {
+//            enabled = false
+//        }
+//        named("jarSearchableOptions") {
+//            enabled = false
+//        }
+//    }
+
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN").orNull
+    }
+
+    pluginVerification {
+        ides {
+//            recommended()  --默认为最新版本
+            local(providers.gradleProperty("platformLocalPath"))
+        }
+    }
+}
+
+// Configure Gradle Changelog Plugin - read more: https://github.com/JetBrains/gradle-changelog-plugin
+changelog {
+    version = providers.gradleProperty("pluginVersion")
+    path = "CHANGELOG.md"
 }
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+        options.compilerArgs.add("-Xlint:unchecked")
+        options.encoding = "UTF-8"
     }
 
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "17"
-    }
-
-    patchPluginXml {
-        sinceBuild.set("233")
-        untilBuild.set("253.*")
-
-        changeNotes.set("""
-            <h3>0.2.7 - New Sexy Chat UI 💅</h3>
-            <ul>
-                <li><strong>NEW:</strong> Complete Chat UI overhaul - looks just like Cursor!</li>
-                <li><strong>NEW:</strong> Bubble-style messages with proper code formatting</li>
-                <li><strong>NEW:</strong> Easy model switching dropdown (Provider + Model)</li>
-                <li><strong>NEW:</strong> "Smart Context" toggles for better AI awareness</li>
-            </ul>
-            
-            <h3>0.2.6</h3>
-            <ul>
-                <li>Maintenance release and internal improvements</li>
-            </ul>
-
-            <h3>0.2.5 - Inline Experience & Bug Fixes 🎉</h3>
-            <ul>
-                <li><strong>NEW:</strong> Inline AI suggestions like Cursor and GitHub Copilot!</li>
-                <li><strong>NEW:</strong> Ghost text for code suggestions (press Tab to accept)</li>
-                <li><strong>NEW:</strong> Inline diff view with Accept/Reject buttons</li>
-                <li><strong>NEW:</strong> Smart explanation popups right next to your code</li>
-                <li><strong>FIXED:</strong> Threading issues with read/write actions</li>
-                <li><strong>FIXED:</strong> Timeout errors (increased to 60s for cloud, 120s for Ollama)</li>
-                <li><strong>FIXED:</strong> Markdown formatting in AI responses</li>
-                <li><strong>IMPROVED:</strong> No more popup dialogs breaking your flow!</li>
-                <li>All AI responses now appear inline - stay in context while coding</li>
-                <li>Added proper plugin icon</li>
-            </ul>
-            
-            <h3>0.2.4</h3>
-            <ul>
-                <li>Fixed compatibility range (now supports up to 253.*)</li>
-                <li>Internal improvements</li>
-            </ul>
-            
-            <h3>0.2.3</h3>
-            <ul>
-                <li>Internal improvements and bug fixes</li>
-            </ul>
-            
-            <h3>0.2.1</h3>
-            <ul>
-                <li>Updated to use gpt-4o as default model</li>
-                <li>Improved error handling with detailed error messages from API</li>
-                <li>Updated Anthropic Claude model names to proper API format</li>
-            </ul>
-            
-            <h3>0.2.0</h3>
-            <ul>
-                <li>Initial release of Vajra for IntelliJ IDEA</li>
-                <li>Support for 10+ AI providers</li>
-                <li>Interactive chat interface</li>
-                <li>Code actions and local model support</li>
-            </ul>
-        """.trimIndent())
-    }
-
-    buildSearchableOptions {
-        enabled = false
+    publishPlugin {
+        dependsOn(patchChangelog)
     }
 }

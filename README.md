@@ -1,3 +1,5 @@
+<!-- Plugin description -->
+
 # Vajra - AI Coding Assistant for IntelliJ IDEA
 
 > Enterprise-grade multi-provider AI coding assistant supporting GPT-5, Claude 4, Qwen3-Coder, and 10+ cutting-edge AI models
@@ -38,6 +40,8 @@
    - **Anthropic**: [Get API Key](https://console.anthropic.com/)
    - **Qwen**: [Get API Key](https://dashscope.aliyun.com/)
    - **DeepSeek**: [Get API Key](https://platform.deepseek.com/)
+
+<!-- Plugin description end -->
 
 ### 2. Or Use Local Models (Free!)
 ```bash

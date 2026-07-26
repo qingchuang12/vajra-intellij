@@ -1,1 +1,1 @@
-rootProject.name = "vajra-intellij"
+rootProject.name = "ai-coder"

@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.vajraai.assistant</id>
-    <name>Vajra - AI Coding Assistant</name>
+    <name>ai-coder</name>
     <vendor email="ashishjsharda@gmail.com" url="https://github.com/ashishjsharda">Ashish Sharda</vendor>
 
     <description><![CDATA[
